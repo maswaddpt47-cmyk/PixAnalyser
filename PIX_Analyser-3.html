@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIX Analyser — CD47 Médiation Numérique</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#0f1117;--bg2:#161b27;--bg3:#1e2535;--bg4:#252d3d;
+  --border:#2a3347;--border2:#3a4560;
+  --text:#e8edf5;--text2:#8b97b0;--text3:#4a566a;
+  --blue:#4f8ef7;--blue2:#3a7be0;--blue-glow:rgba(79,142,247,.15);
+  --green:#34d399;--green2:#059669;--green-glow:rgba(52,211,153,.12);
+  --orange:#fb923c;--orange2:#ea6d1a;
+  --red:#f87171;--purple:#a78bfa;
+  --yellow:#fbbf24;
+  --r:10px;--r2:14px;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+  --shadow2:0 2px 8px rgba(0,0,0,.3);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;line-height:1.5;overflow-x:hidden}
+
+/* ── ÉCRAN D'IMPORT ── */
+#importScreen{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:40px 20px;
+  background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(79,142,247,.12),transparent);
+}
+.brand{text-align:center;margin-bottom:48px}
+.brand-logo{
+  display:inline-flex;align-items:center;gap:12px;
+  background:linear-gradient(135deg,var(--blue),var(--green));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  font-size:32px;font-weight:700;letter-spacing:-1px;margin-bottom:8px
+}
+.brand-logo svg{flex-shrink:0}
+.brand p{color:var(--text2);font-size:14px;font-weight:400}
+
+/* Zone de dépôt */
+.drop-zone{
+  width:100%;max-width:640px;border:2px dashed var(--border2);
+  border-radius:var(--r2);padding:48px 32px;text-align:center;
+  cursor:pointer;transition:all .25s;position:relative;
+  background:var(--bg2);
+}
+.drop-zone:hover,.drop-zone.over{
+  border-color:var(--blue);background:rgba(79,142,247,.06);
+  box-shadow:0 0 0 4px var(--blue-glow);
+}
+.drop-icon{font-size:48px;margin-bottom:16px;display:block}
+.drop-zone h3{font-size:18px;font-weight:600;margin-bottom:8px}
+.drop-zone p{color:var(--text2);font-size:13px;margin-bottom:20px}
+.drop-zone input{display:none}
+.btn-upload{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--blue);color:#fff;border:none;
+  padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all .2s;
+}
+.btn-upload:hover{background:var(--blue2);transform:translateY(-1px)}
+
+/* Liste des fichiers uploadés */
+#fileList{width:100%;max-width:640px;margin-top:20px;display:flex;flex-direction:column;gap:10px}
+.file-item{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:14px 16px;display:flex;align-items:center;gap:12px;
+  animation:slideIn .2s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.file-badge{
+  padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;
+  font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0
+}
+.badge-entree{background:rgba(79,142,247,.2);color:var(--blue)}
+.badge-sortie{background:rgba(52,211,153,.2);color:var(--green)}
+.badge-unknown{background:rgba(251,146,60,.2);color:var(--orange)}
+.file-name{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-rows{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;flex-shrink:0}
+.part-input{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
+  color:var(--text);font-size:12px;padding:5px 9px;font-family:inherit;
+  width:140px;outline:none;flex-shrink:0;transition:border-color .2s;
+}
+.part-input:focus{border-color:var(--blue)}
+.part-input::placeholder{color:var(--text3)}
+.file-del{background:none;border:none;color:var(--text3);cursor:pointer;
+  font-size:16px;padding:2px 4px;transition:color .2s;flex-shrink:0}
+.file-del:hover{color:var(--red)}
+
+/* Bouton générer */
+#btnGen{
+  margin-top:28px;width:100%;max-width:640px;
+  background:linear-gradient(135deg,var(--blue),#6366f1);
+  color:#fff;border:none;padding:16px 32px;border-radius:var(--r);
+  font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;
+  transition:all .25s;box-shadow:0 4px 20px rgba(79,142,247,.3);
+  display:none;
+}
+#btnGen:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(79,142,247,.45)}
+#btnGen:active{transform:none}
+
+.hint{
+  margin-top:16px;font-size:12px;color:var(--text3);text-align:center;
+  max-width:500px;
+}
+
+/* ── DASHBOARD ── */
+#dashScreen{display:none;min-height:100vh;flex-direction:column}
+
+/* Header dash */
+#dhdr{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:0 24px;height:54px;display:flex;align-items:center;gap:16px;
+  position:sticky;top:0;z-index:100;
+}
+.d-logo{
+  display:flex;align-items:center;gap:8px;
+  font-weight:700;font-size:15px;letter-spacing:-.3px;
+}
+.d-logo span{
+  background:linear-gradient(135deg,var(--blue),var(--green));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.d-sep{width:1px;height:24px;background:var(--border2);flex-shrink:0}
+.d-sub{font-size:12px;color:var(--text2)}
+.d-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.d-sel{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
+  color:var(--text);font-size:12px;padding:5px 10px;cursor:pointer;
+  font-family:inherit;outline:none;
+}
+.back-btn{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
+  color:var(--text2);font-size:12px;padding:5px 10px;cursor:pointer;
+  font-family:inherit;transition:all .2s;
+}
+.back-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Tabs */
+#dtabs{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:0 24px;display:flex;gap:2px;
+}
+.dtab{
+  padding:10px 16px;border:none;background:transparent;color:var(--text2);
+  font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;
+  border-bottom:2px solid transparent;transition:all .2s;
+}
+.dtab:hover{color:var(--text)}
+.dtab.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+
+/* Content */
+#dct{padding:20px 24px;max-width:1200px;margin:0 auto;width:100%}
+.dpage{display:none}.dpage.on{display:block}
+.ph{margin-bottom:18px}
+.ph h2{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.ph p{font-size:12px;color:var(--text2);margin-top:3px}
+
+/* KPI */
+.krow{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.kc{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px 18px;flex:1;min-width:120px;
+  border-top:2px solid var(--blue);transition:border-color .2s;
+}
+.kl{font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;
+  letter-spacing:.6px;margin-bottom:5px}
+.kv{font-size:26px;font-weight:700;line-height:1;color:var(--blue)}
+.ks{font-size:11px;color:var(--text2);margin-top:4px}
+
+/* Cards graphiques */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.gc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.gc.full{grid-column:1/-1}
+.gt{font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;
+  padding-bottom:8px;border-bottom:1px solid var(--border)}
+
+/* SVG */
+svg text{font-family:'DM Sans',sans-serif}
+
+/* Tableau */
+.dt{width:100%;border-collapse:collapse;font-size:12px}
+.dt th{background:var(--bg3);padding:8px 10px;text-align:left;font-weight:600;
+  color:var(--text2);border-bottom:1px solid var(--border);font-size:11px;
+  text-transform:uppercase;letter-spacing:.4px}
+.dt td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.dt tr:hover td{background:var(--bg3)}
+.badge{display:inline-block;padding:2px 7px;border-radius:6px;font-weight:600;font-size:11px;font-family:'DM Mono',monospace}
+.bg{background:rgba(52,211,153,.15);color:var(--green)}
+.bo{background:rgba(251,191,36,.15);color:var(--yellow)}
+.br{background:rgba(248,113,113,.15);color:var(--red)}
+
+/* Fiche */
+.psel-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:14px;margin-bottom:16px}
+.psel-wrap label{font-size:11px;font-weight:600;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px}
+.psel-wrap select{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
+  color:var(--text);font-size:13px;padding:8px 12px;width:100%;max-width:420px;
+  outline:none;font-family:inherit;cursor:pointer}
+
+/* Légende */
+.leg{display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap}
+.ld{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+
+/* Tooltip */
+#tt{position:fixed;background:rgba(15,17,23,.95);color:var(--text);
+  padding:6px 10px;border-radius:7px;font-size:11px;pointer-events:none;
+  opacity:0;transition:opacity .1s;z-index:9999;white-space:nowrap;
+  border:1px solid var(--border2);box-shadow:var(--shadow2)}
+
+/* Mini comp cards */
+.ccards{display:flex;flex-direction:column;gap:8px}
+.ccard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 13px}
+.ccard .cn{font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.ccard .cv{font-size:19px;font-weight:700;color:var(--green);margin:3px 0}
+.ccard .cs{font-size:11px;color:var(--text2)}
+
+/* Empty state */
+.empty{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty svg{opacity:.3;margin-bottom:16px}
+.empty p{font-size:14px}
+
+/* Animations */
+.dpage.on{animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+@media(max-width:600px){
+  .g2{grid-template-columns:1fr}
+  #dhdr .d-sub{display:none}
+  .kv{font-size:22px}
+}
+
+/* ── MODAL HISTORIQUE ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);
+  padding:24px;min-width:320px;max-width:500px;width:100%;box-shadow:var(--shadow)}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--text)}
+.modal-close{float:right;background:none;border:none;color:var(--text2);
+  font-size:18px;cursor:pointer;line-height:1}
+.save-item{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px;gap:10px}
+.save-item-info{flex:1}
+.save-item-name{font-size:13px;font-weight:600;color:var(--text)}
+.save-item-date{font-size:11px;color:var(--text2);margin-top:2px}
+.save-item-btns{display:flex;gap:6px}
+.save-load-btn{background:var(--blue);color:#fff;border:none;border-radius:6px;
+  padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.save-del-btn{background:var(--bg4);color:var(--red);border:1px solid var(--border2);
+  border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit}
+.empty-saves{text-align:center;padding:24px;color:var(--text2);font-size:13px}
+
+/* ── IMPRESSION PDF ── */
+@media print{
+  body{background:#fff !important;color:#000 !important}
+  #importScreen,#dhdr,#dtabs,.back-btn,#dselP,.modal-bg{display:none !important}
+  #dashScreen{display:block !important}
+  #dct{padding:0;max-width:none}
+  .dpage{display:block !important}
+  .card,.gc{background:#fff !important;border:1px solid #ddd !important;
+    box-shadow:none !important;break-inside:avoid;margin-bottom:12px}
+  .kc{background:#fff !important;border:1px solid #ddd !important;box-shadow:none !important}
+  .kv{color:#1a73e8 !important;font-size:20px !important}
+  .klabel,.ksub{color:#555 !important}
+  .gt,.stit{color:#000 !important;border-bottom-color:#ddd !important}
+  .ph h2{color:#000 !important;font-size:20px !important}
+  .ph p{color:#555 !important}
+  .dtable th{background:#f5f5f5 !important;color:#000 !important}
+  .dtable td{color:#000 !important}
+  svg text{fill:#333 !important}
+  @page{size:A4;margin:15mm}
+  .g2{grid-template-columns:1fr 1fr}
+  .krow{flex-wrap:wrap}
+  .kc{min-width:150px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── ÉCRAN D'IMPORT ── -->
+<div id="importScreen">
+  <div class="brand">
+    <div class="brand-logo">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+        <rect width="36" height="36" rx="8" fill="url(#lg)"/>
+        <path d="M10 22l6-8 4 5 3-4 3 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="36" y2="36">
+          <stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#34d399"/>
+        </linearGradient></defs>
+      </svg>
+      PIX Analyser
+    </div>
+    <p>Département du Lot-et-Garonne · Médiation Numérique</p>
+  </div>
+
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <span class="drop-icon">📂</span>
+    <h3>Dépose tes exports PIX ici</h3>
+    <p>Un fichier CSV par campagne — toutes les sessions dedans<br>
+       T1 = première session · T2 = dernière session · Intermédiaires ignorés</p>
+    <button class="btn-upload" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+      </svg>
+      Choisir des fichiers
+    </button>
+    <input type="file" id="fileInput" accept=".csv" multiple onchange="handleFiles(this.files)">
+  </div>
+  <div style="margin-top:12px;text-align:center">
+    <span style="font-size:12px;color:var(--text2)">ou</span>
+    <button onclick="importJSON()" style="margin-left:10px;background:var(--bg3);border:1px solid var(--border2);
+      border-radius:8px;color:var(--text2);font-size:12px;padding:6px 14px;cursor:pointer;font-family:inherit">
+      📂 Charger un JSON sauvegardé
+    </button>
+  </div>
+
+  <div id="fileList"></div>
+
+  <button id="btnGen" onclick="generateDashboard()">
+    ⚡ Générer le dashboard
+  </button>
+
+  <p class="hint">
+    💡 Chaque fichier CSV contient toutes les sessions d'une campagne.<br>
+    <strong>Première session par participant = T1</strong> · <strong>Dernière session = T2</strong><br>
+    Les sessions intermédiaires sont automatiquement ignorées.
+  </p>
+</div>
+
+<!-- ── DASHBOARD ── -->
+<div id="dashScreen">
+  <div id="dhdr">
+    <div class="d-logo">
+      <svg width="22" height="22" viewBox="0 0 36 36" fill="none">
+        <rect width="36" height="36" rx="8" fill="url(#lg2)"/>
+        <path d="M10 22l6-8 4 5 3-4 3 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="lg2" x1="0" y1="0" x2="36" y2="36">
+          <stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#34d399"/>
+        </linearGradient></defs>
+      </svg>
+      <span>PIX Analyser</span>
+    </div>
+    <div class="d-sep"></div>
+    <span class="d-sub" id="dSubtitle">Médiation Numérique CD47</span>
+    <div class="d-right">
+      <select class="d-sel" id="dselP" onchange="changeP(this.value)"></select>
+      <button class="back-btn" onclick="printDash()" title="Imprimer les 4 pages en PDF">🖨️ PDF</button>
+      <button class="back-btn" onclick="exportJSON()" title="Exporter les données en JSON">💾 Export JSON</button>
+      <button class="back-btn" onclick="importJSON()" title="Charger un fichier JSON sauvegardé">📂 Import JSON</button>
+      <button class="back-btn" onclick="goImport()">← Nouvel import</button>
+    </div>
+  </div>
+
+  <div id="dtabs">
+    <button class="dtab on" onclick="goTab('t1',this)">Vue d'ensemble</button>
+    <button class="dtab" onclick="goTab('t2',this)">Compétences</button>
+    <button class="dtab" onclick="goTab('t3',this)">Domaines</button>
+    <button class="dtab" onclick="goTab('t4',this)">Fiche individuelle</button>
+  </div>
+
+  <div id="dct">
+    <div id="t1" class="dpage on"></div>
+    <div id="t2" class="dpage"></div>
+    <div id="t3" class="dpage"></div>
+    <div id="t4" class="dpage"></div>
+  </div>
+</div>
+
+<div id="tt"></div>
+
+<!-- Plus de modal nécessaire — sauvegarde via fichier JSON -->
+<div id="modalSaved" style="display:none"></div>
+
+<footer style="color:var(--text3);font-size:10px;padding:16px;text-align:center">
+  PIX Analyser · CD47 Médiation Numérique · Zéro dépendance · Données traitées localement
+</footer>
+
+<script>
+// ── COLONNES PIX (mapping robuste par mot-clé) ────────────────────────────
+const COLMAP=[
+  [c=>"email"===c.toLowerCase()||c.includes("email")||c.includes("Email"),"Email"],
+  [c=>c.includes("organisation")||c.includes("organisation"),"Organisation"],
+  [c=>c==="ID Campagne","ID_Campagne"],
+  [c=>c==="Parcours","Parcours"],
+  [c=>c.includes("Nom de la campagne")||c.includes("nom de la campagne"),"Nom_Campagne"],
+  [c=>c.includes("Nom du Participant")||c.includes("nom du participant"),"Nom"],
+  [c=>(c.includes("rénom")||c.includes("renom"))&&c.includes("articipant"),"Prenom"],
+  [c=>c.includes("rogression")&&c.startsWith("%"),"Pct_Progression"],
+  [c=>c.includes("but")&&c.includes("uro"),"Date_Debut"],
+  [c=>c.includes("artage")&&c.includes("O/N"),"Partage"],
+  [c=>c.includes("alier")&&c.includes("/3"),"Palier"],
+  [c=>c.includes("navigue"),"Navigue"],
+  [c=>c.includes("rotège")||c.includes("rotege"),"Protege"],
+  [c=>c.includes("aisis"),"Saisit"],
+  [c=>c.includes("ensemble des acquis"),"Score_Global"],
+  [c=>c.includes("recherche")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Recherche"],
+  [c=>c.includes("Interagir")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Interagir"],
+  [c=>(c.includes("nsérer")||c.includes("nserer"))&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Inserer"],
+  [c=>c.includes("textuels")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Docs"],
+  [c=>(c.includes("écuriser")||c.includes("ecuriser"))&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Securiser"],
+  [c=>(c.includes("ésoudre")||c.includes("esoudre"))&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Resoudre"],
+  [c=>c.includes("Construire")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Construire"],
+  [c=>c.includes("Information")&&c.includes("données")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Information"],
+  [c=>c.includes("Communication")&&c.includes("collaboration")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Communication"],
+  [c=>(c.includes("réation")||c.includes("reation"))&&c.includes("contenu")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Creation"],
+  [c=>c.includes("Protection")&&c.includes("sécurité")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Protection"],
+  [c=>c.includes("Environnement")&&c.includes("numérique")&&c.includes("domaine")&&c.includes("%")&&!c.includes("Nombre")&&!c.includes("Acquis"),"Pct_Environnement"],
+];
+
+function mapCol(name){
+  const n=name.replace(/\u2019/g,"'").replace(/\u2018/g,"'");
+  for(const [test,mapped] of COLMAP){ if(test(n)) return mapped; }
+  return null;
+}
+
+// ── PARSE CSV ─────────────────────────────────────────────────────────────
+function parseCSV(text){
+  // Supprimer BOM
+  if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+  // Détecter séparateur
+  const first=text.split("\n")[0];
+  const sep=first.split(";").length>first.split(",").length?";":","  ;
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2) return [];
+  // Parser lignes avec gestion des guillemets
+  function parseLine(l){
+    const cells=[]; let cur="",inQ=false;
+    for(let i=0;i<l.length;i++){
+      if(l[i]==='"'){ inQ=!inQ; }
+      else if(l[i]===sep&&!inQ){ cells.push(cur.trim()); cur=""; }
+      else cur+=l[i];
+    }
+    cells.push(cur.trim());
+    return cells;
+  }
+  const headers=parseLine(lines[0]).map(h=>h.replace(/^"|"$/g,"").trim());
+  const colIdx={};
+  headers.forEach((h,i)=>{ const m=mapCol(h); if(m) colIdx[m]=i; });
+
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const cells=parseLine(lines[i]);
+    if(cells.length<3) continue;
+    const get=(k)=>colIdx[k]!=null?(cells[colIdx[k]]||"").replace(/^"|"$/g,"").trim():"";
+    const parseNum=(v)=>{
+      const n=parseFloat(v.replace(",","."));
+      return isNaN(n)?null:n;
+    };
+    const email=get("Email");
+    if(!email||email==="Votre Email") continue;
+    rows.push({
+      Email:email, Nom:get("Nom"), Prenom:get("Prenom"),
+      Organisation:get("Organisation"), Nom_Campagne:get("Nom_Campagne"),
+      Partage:get("Partage"), Date_Debut:get("Date_Debut"),
+      Palier:parseInt(get("Palier"))||0,
+      Score_Global:parseNum(get("Score_Global")),
+      Pct_Progression:parseNum(get("Pct_Progression")),
+      Pct_Recherche:parseNum(get("Pct_Recherche")),
+      Pct_Interagir:parseNum(get("Pct_Interagir")),
+      Pct_Inserer:parseNum(get("Pct_Inserer")),
+      Pct_Docs:parseNum(get("Pct_Docs")),
+      Pct_Securiser:parseNum(get("Pct_Securiser")),
+      Pct_Resoudre:parseNum(get("Pct_Resoudre")),
+      Pct_Construire:parseNum(get("Pct_Construire")),
+      Pct_Information:parseNum(get("Pct_Information")),
+      Pct_Communication:parseNum(get("Pct_Communication")),
+      Pct_Creation:parseNum(get("Pct_Creation")),
+      Pct_Protection:parseNum(get("Pct_Protection")),
+      Pct_Environnement:parseNum(get("Pct_Environnement")),
+    });
+  }
+  return rows;
+}
+
+// ── ÉTAT GLOBAL ───────────────────────────────────────────────────────────
+let FILES=[];   // [{name, partenaire, rows}] — rows = toutes les lignes brutes
+let DATA=[];    // Lignes finales : une par participant par TypeCampagne (T1 ou T2)
+let curP="Tous";
+
+// ── GESTION FICHIERS ──────────────────────────────────────────────────────
+function handleFiles(files){
+  Array.from(files).forEach(f=>{
+    if(!f.name.endsWith(".csv")) return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const rows=parseCSV(e.target.result);
+      FILES.push({id:Date.now()+Math.random(),name:f.name,partenaire:"",rows});
+      renderFileList();
+    };
+    reader.readAsText(f,"utf-8");
+  });
+}
+
+function renderFileList(){
+  const list=document.getElementById("fileList");
+  list.innerHTML=FILES.map((f,i)=>{
+    // Compter participants distincts et sessions
+    const emails=new Set(f.rows.map(r=>r.Email));
+    const avecT2=[...emails].filter(em=>{
+      const sessions=f.rows.filter(r=>r.Email===em);
+      return sessions.length>1;
+    });
+    const info=`${emails.size} participants · ${avecT2.length} avec T2`;
+    return `
+    <div class="file-item" style="flex-wrap:wrap;gap:8px">
+      <span class="file-badge badge-entree">📊 Campagne</span>
+      <span class="file-name" title="${f.name}">${f.name}</span>
+      <span class="file-rows">${info}</span>
+      <div style="width:100%;display:flex;align-items:center;gap:8px;margin-top:4px">
+        <label style="font-size:11px;color:var(--text2);white-space:nowrap">Partenaire :</label>
+        <input class="part-input" style="flex:1;max-width:none" placeholder="Ex: Fumel Gr.1, Pôle Emploi…" value="${f.partenaire}"
+          oninput="FILES[${i}].partenaire=this.value">
+        <button class="file-del" onclick="FILES.splice(${i},1);renderFileList()" title="Supprimer">×</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  const btnGen=document.getElementById("btnGen");
+  if(FILES.length>0){ btnGen.style.display="block"; }
+  else { btnGen.style.display="none"; }
+}
+
+// Drag & drop
+const dz=document.getElementById("dropZone");
+dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("over")});
+dz.addEventListener("dragleave",()=>dz.classList.remove("over"));
+dz.addEventListener("drop",e=>{
+  e.preventDefault();dz.classList.remove("over");
+  handleFiles(e.dataTransfer.files);
+});
+
+// ── GÉNÉRATION ────────────────────────────────────────────────────────────
+function parseDate(str){
+  // Formats PIX : "DD/MM/YYYY HH:MM:SS" ou "YYYY-MM-DD HH:MM:SS"
+  if(!str) return null;
+  str=str.trim();
+  // Format DD/MM/YYYY
+  const m1=str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m1) return new Date(`${m1[3]}-${m1[2]}-${m1[1]}T00:00:00`);
+  // Format YYYY-MM-DD
+  const m2=str.match(/^(\d{4}-\d{2}-\d{2})/);
+  if(m2) return new Date(m2[1]);
+  return null;
+}
+
+function generateDashboard(){
+  DATA=[];
+  FILES.forEach(f=>{
+    const partenaire=f.partenaire||"(sans nom)";
+    // Grouper par email
+    const byEmail={};
+    f.rows.forEach(row=>{
+      if(!row.Email) return;
+      if(!byEmail[row.Email]) byEmail[row.Email]=[];
+      byEmail[row.Email].push(row);
+    });
+    // Pour chaque participant : trier par date, garder première (T1) et dernière (T2)
+    Object.entries(byEmail).forEach(([email,sessions])=>{
+      // Trier par date croissante
+      sessions.sort((a,b)=>{
+        const da=parseDate(a.Date_Debut), db=parseDate(b.Date_Debut);
+        if(!da&&!db) return 0;
+        if(!da) return 1;
+        if(!db) return -1;
+        return da-db;
+      });
+      const t1=sessions[0];
+      const t2=sessions.length>1?sessions[sessions.length-1]:null;
+      const nbSessions=sessions.length;
+      // Durée T1→T2 en jours
+      let duree=null;
+      if(t1&&t2){
+        const d1=parseDate(t1.Date_Debut), d2=parseDate(t2.Date_Debut);
+        if(d1&&d2) duree=Math.round((d2-d1)/(1000*60*60*24));
+      }
+      DATA.push({...t1,TypeCampagne:"Entrée",Partenaire:partenaire,NbSessions:nbSessions,Duree:duree});
+      if(t2) DATA.push({...t2,TypeCampagne:"Sortie",Partenaire:partenaire,NbSessions:nbSessions,Duree:duree});
+    });
+  });
+
+  if(DATA.length===0){alert("Aucune donnée valide trouvée.");return;}
+
+  // Peupler filtre partenaire
+  const parts=["Tous",...new Set(DATA.map(r=>r.Partenaire).filter(Boolean))];
+  const sel=document.getElementById("dselP");
+  sel.innerHTML=parts.map(p=>`<option>${p}</option>`).join("");
+
+  // Afficher dash
+  document.getElementById("importScreen").style.display="none";
+  document.getElementById("dashScreen").style.display="flex";
+
+  const nbT1=DATA.filter(r=>r.TypeCampagne==="Entrée").length;
+  const nbT2=DATA.filter(r=>r.TypeCampagne==="Sortie").length;
+  document.getElementById("dSubtitle").textContent=
+    `${FILES.length} campagne${FILES.length>1?"s":""} · ${nbT1} participants · ${nbT2} avec T2`;
+
+  curP="Tous";
+  goTab("t1",document.querySelector(".dtab"));
+}
+
+function goImport(){
+  document.getElementById("dashScreen").style.display="none";
+  document.getElementById("importScreen").style.display="flex";
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const pct=v=>v!=null?Math.round(v*100)+"%":"—";
+const r=v=>v!=null?Math.round(v*100):0;
+const avg=a=>a.length?a.reduce((s,b)=>s+b,0)/a.length:0;
+const nn=a=>a.filter(v=>v!=null);
+
+function getRows(p,type){
+  return DATA.filter(d=>(p==="Tous"||d.Partenaire===p)&&(type?d.TypeCampagne===type:true));
+}
+function getPartenaires(){return [...new Set(DATA.map(d=>d.Partenaire))]}
+
+// Agréger par partenaire
+function byPart(p,type,field){
+  const rows=getRows(p,type).filter(d=>d[field]!=null);
+  return rows.length?avg(rows.map(d=>d[field])):null;
+}
+
+// Compétences / Domaines agrégées
+const COMP_FIELDS=[
+  {c:"Recherche",f:"Pct_Recherche"},{c:"Interagir",f:"Pct_Interagir"},
+  {c:"S'insérer",f:"Pct_Inserer"},{c:"Docs textuels",f:"Pct_Docs"},
+  {c:"Sécuriser",f:"Pct_Securiser"},{c:"Résoudre",f:"Pct_Resoudre"},
+  {c:"Construire",f:"Pct_Construire"},
+];
+const DOM_FIELDS=[
+  {d:"Information",f:"Pct_Information"},{d:"Communication",f:"Pct_Communication"},
+  {d:"Création",f:"Pct_Creation"},{d:"Protection",f:"Pct_Protection"},
+  {d:"Environnement",f:"Pct_Environnement"},
+];
+
+const PLIB=["Très débutant","Débutant","Intermédiaire","Avancé"];
+const PCOL=["#f87171","#fb923c","#4f8ef7","#34d399"];
+const DCOL=["#4f8ef7","#34d399","#a78bfa","#fb923c","#f472b6"];
+
+// ── TOOLTIP ───────────────────────────────────────────────────────────────
+const ttEl=document.getElementById("tt");
+function showTT(e,t){ttEl.textContent=t;ttEl.style.opacity=1;
+  ttEl.style.left=(e.clientX+12)+"px";ttEl.style.top=(e.clientY-32)+"px";}
+function moveTT(e){ttEl.style.left=(e.clientX+12)+"px";ttEl.style.top=(e.clientY-32)+"px";}
+function hideTT(){ttEl.style.opacity=0;}
+
+// ── SVG ENGINE ────────────────────────────────────────────────────────────
+const NS="http://www.w3.org/2000/svg";
+function se(tag,a,p){
+  const e=document.createElementNS(NS,tag);
+  Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));
+  if(p)p.appendChild(e);return e;
+}
+function st(txt,a,p){const e=se("text",a,p);e.textContent=txt;return e;}
+
+function mkSVG(W,H){
+  return se("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",
+    style:"display:block;overflow:visible",preserveAspectRatio:"xMidYMid meet"});
+}
+
+// Barres groupées verticales
+function barV(labels,datasets,maxV=100,W=500,H=210){
+  const sv=mkSVG(W,H);
+  const PL=34,PR=10,PT=14,PB=40;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const n=labels.length,nd=datasets.length;
+  const grpW=cW/n,bW=Math.min(grpW*.65/nd,28),gap=(grpW-bW*nd)/2;
+
+  se("line",{x1:PL,y1:PT,x2:PL,y2:PT+cH,stroke:"#2a3347","stroke-width":1},sv);
+  [0,25,50,75,100].filter(v=>v<=maxV).forEach(v=>{
+    const y=PT+cH*(1-v/maxV);
+    se("line",{x1:PL,y1:y,x2:W-PR,y2:y,stroke:"#2a3347","stroke-width":1},sv);
+    st(v+"%",{x:PL-5,y:y+3,"font-size":9,"text-anchor":"end",fill:"#4a566a"},sv);
+  });
+
+  datasets.forEach((ds,di)=>{
+    ds.data.forEach((v,i)=>{
+      if(v==null||v===0)return;
+      const x=PL+i*grpW+gap+di*bW;
+      const bH=v/maxV*cH,y=PT+cH-bH;
+      const rect=se("rect",{x,y,width:bW-2,height:bH,fill:ds.col,rx:3},sv);
+      // Lueur douce
+      const gid="g"+Math.random().toString(36).slice(2);
+      const defs=se("defs",{},sv);
+      const flt=se("filter",{id:gid},defs);
+      se("feGaussianBlur",{in:"SourceGraphic",stdDeviation:"2",result:"blur"},flt);
+      const glRect=se("rect",{x:x+1,y:y+bH*.7,width:bW-4,height:bH*.3,fill:ds.col,
+        rx:3,filter:`url(#${gid})`,"opacity":".5"},sv);
+      rect.addEventListener("mouseenter",e=>showTT(e,`${labels[i]}\n${ds.label||""}: ${v}%`));
+      rect.addEventListener("mousemove",moveTT);
+      rect.addEventListener("mouseleave",hideTT);
+      if(bH>18) st(v+"%",{x:x+bW/2-1,y:y+bH-5,"font-size":8,"text-anchor":"middle",
+        fill:"rgba(255,255,255,.85)","font-weight":600},sv);
+    });
+  });
+
+  labels.forEach((l,i)=>{
+    const x=PL+i*grpW+grpW/2,t=l.length>9?l.slice(0,9)+"…":l;
+    st(t,{x,y:H-PB+14,"font-size":9,"text-anchor":"middle",fill:"#8b97b0"},sv);
+  });
+  if(nd>1) datasets.forEach((ds,i)=>{
+    se("rect",{x:PL+i*70,y:H-6,width:9,height:8,fill:ds.col,rx:2},sv);
+    st(ds.label||"",{x:PL+i*70+12,y:H-0,"font-size":9,fill:"#8b97b0"},sv);
+  });
+  return sv;
+}
+
+// Barres horizontales
+function barH(labels,datasets,maxV=100,W=500,H=250){
+  const sv=mkSVG(W,H);
+  const PL=80,PR=40,PT=6,PB=6;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const n=labels.length,nd=datasets.length;
+  const rowH=cH/n,bH=Math.min(rowH*.55/nd,15),padV=(rowH-bH*nd)/2;
+
+  [0,.25,.5,.75,1].forEach(f=>{
+    const x=PL+f*cW;
+    se("line",{x1:x,y1:PT,x2:x,y2:H-PB,stroke:"#2a3347","stroke-width":1},sv);
+  });
+  datasets.forEach((ds,di)=>{
+    ds.data.forEach((v,i)=>{
+      const y=PT+i*rowH+padV+di*bH,bW=Math.max(v/maxV*cW,2);
+      const rect=se("rect",{x:PL,y,width:bW,height:bH-1,fill:ds.col,rx:2},sv);
+      rect.addEventListener("mouseenter",e=>showTT(e,`${labels[i]} — ${ds.label||""}: ${v}%`));
+      rect.addEventListener("mousemove",moveTT);
+      rect.addEventListener("mouseleave",hideTT);
+      st(v+"%",{x:PL+bW+3,y:y+bH/2+3,"font-size":9,fill:"#8b97b0"},sv);
+    });
+  });
+  labels.forEach((l,i)=>{
+    st(l,{x:PL-5,y:PT+i*rowH+rowH/2+4,"font-size":10,"text-anchor":"end",fill:"#8b97b0"},sv);
+  });
+  return sv;
+}
+
+// Donut
+function donut(labels,vals,colors,W=420,H=200){
+  const sv=mkSVG(W,H);
+  const cx=W*.38,cy=H/2,R=Math.min(cx,cy)*.85,ri=R*.56;
+  const total=vals.reduce((a,b)=>a+b,0);
+  if(!total) return sv;
+  let angle=-Math.PI/2;
+  vals.forEach((v,i)=>{
+    if(!v)return;
+    const da=v/total*Math.PI*2;
+    const x1=cx+R*Math.cos(angle),y1=cy+R*Math.sin(angle);
+    const x2=cx+R*Math.cos(angle+da),y2=cy+R*Math.sin(angle+da);
+    const xi1=cx+ri*Math.cos(angle),yi1=cy+ri*Math.sin(angle);
+    const xi2=cx+ri*Math.cos(angle+da),yi2=cy+ri*Math.sin(angle+da);
+    const lg=da>Math.PI?1:0;
+    const path=se("path",{
+      d:`M${xi1},${yi1} A${ri},${ri} 0 ${lg},1 ${xi2},${yi2} L${x2},${y2} A${R},${R} 0 ${lg},0 ${x1},${y1} Z`,
+      fill:colors[i],cursor:"pointer","opacity":.9
+    },sv);
+    path.addEventListener("mouseenter",e=>showTT(e,`${labels[i]}: ${v} participant${v>1?"s":""}`));
+    path.addEventListener("mousemove",moveTT);
+    path.addEventListener("mouseleave",hideTT);
+    angle+=da;
+  });
+  se("circle",{cx,cy,r:ri,fill:"var(--bg2)"},sv);
+  st(total,{x:cx,y:cy+6,"font-size":20,"text-anchor":"middle",
+    fill:"var(--text)","font-weight":700},sv);
+  st("total",{x:cx,y:cy+18,"font-size":10,"text-anchor":"middle",fill:"var(--text2)"},sv);
+  const lx=W*.7,actif=vals.filter(v=>v>0);
+  let li=0;
+  labels.forEach((l,i)=>{
+    if(!vals[i])return;
+    const y=cy-actif.length*12+li*24;
+    se("rect",{x:lx,y,width:9,height:9,fill:colors[i],rx:2},sv);
+    st(l,{x:lx+13,y:y+9,"font-size":10,fill:"var(--text2)"},sv);
+    st(vals[i],{x:W-4,y:y+9,"font-size":10,"text-anchor":"end",
+      fill:"var(--text)","font-weight":600},sv);
+    li++;
+  });
+  return sv;
+}
+
+// Radar
+function radar(labels,datasets,W=400,H=230){
+  const sv=mkSVG(W,H);
+  const cx=W/2,cy=H/2,R=Math.min(W,H)*.36;
+  const n=labels.length;
+  [.25,.5,.75,1].forEach(f=>{
+    const pts=labels.map((_,i)=>{
+      const a=i/n*2*Math.PI-Math.PI/2;
+      return `${cx+R*f*Math.cos(a)},${cy+R*f*Math.sin(a)}`;
+    }).join(" ");
+    se("polygon",{points:pts,fill:"none",stroke:"#2a3347","stroke-width":1},sv);
+  });
+  labels.forEach((_,i)=>{
+    const a=i/n*2*Math.PI-Math.PI/2;
+    se("line",{x1:cx,y1:cy,x2:cx+R*Math.cos(a),y2:cy+R*Math.sin(a),
+      stroke:"#2a3347","stroke-width":1},sv);
+    const lx=cx+(R+15)*Math.cos(a),ly=cy+(R+15)*Math.sin(a);
+    const anc=Math.cos(a)>.1?"start":Math.cos(a)<-.1?"end":"middle";
+    st(labels[i],{x:lx,y:ly,"font-size":9,"text-anchor":anc,fill:"#8b97b0"},sv);
+  });
+  datasets.forEach(ds=>{
+    const pts=ds.data.map((v,i)=>{
+      const a=i/n*2*Math.PI-Math.PI/2;
+      return `${cx+R*(v/100)*Math.cos(a)},${cy+R*(v/100)*Math.sin(a)}`;
+    }).join(" ");
+    se("polygon",{points:pts,fill:ds.col,stroke:ds.col,"stroke-width":2,
+      "fill-opacity":.18,"stroke-linejoin":"round"},sv);
+  });
+  datasets.forEach((ds,i)=>{
+    se("rect",{x:8,y:8+i*16,width:9,height:9,fill:ds.col,rx:2},sv);
+    st(ds.label||"",{x:20,y:16+i*16,"font-size":10,fill:"var(--text2)"},sv);
+  });
+  return sv;
+}
+
+// ── RENDER KPI ────────────────────────────────────────────────────────────
+function krow(items){
+  return `<div class="krow">${items.map(k=>`
+    <div class="kc" style="border-top-color:${k.c}">
+      <div class="kl">${k.l}</div>
+      <div class="kv" style="color:${k.c};font-size:${k.big?22:26}px">${k.v}</div>
+      <div class="ks">${k.s||""}</div>
+    </div>`).join("")}</div>`;
+}
+
+// ── PAGE 1 ────────────────────────────────────────────────────────────────
+function renderT1(){
+  const all=getRows(curP);
+  const e1=getRows(curP,"Entrée"),e2=getRows(curP,"Sortie");
+  const mE=e1.length?avg(nn(e1.map(d=>d.Score_Global))):null;
+  const mS=e2.length?avg(nn(e2.map(d=>d.Score_Global))):null;
+  const pr=mE&&mS?mS-mE:null;
+  const comp=e2.length?Math.round(e2.length/Math.max(e1.length,1)*100)+"%":"—";
+
+  const parts=getPartenaires();
+  const barSvg=barV(
+    parts.map(p=>p.length>10?p.slice(0,10)+"…":p),
+    [
+      {data:parts.map(p=>{
+        const rows=DATA.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Entrée");
+        return rows.length?r(avg(nn(rows.map(d=>d.Score_Global)))):0;
+      }),col:"#4f8ef7",label:"T1"},
+      {data:parts.map(p=>{
+        const rows=DATA.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Sortie");
+        return rows.length?r(avg(nn(rows.map(d=>d.Score_Global)))):0;
+      }),col:"#34d399",label:"T2"},
+    ],100
+  );
+  const pc=[0,1,2,3].map(n=>e1.filter(d=>d.Palier===n).length);
+  const doSvg=donut(PLIB.map((l,i)=>l+" ("+pc[i]+")"),pc,PCOL);
+
+  const el=document.getElementById("t1");
+  el.innerHTML=`
+    <div class="ph"><h2>Vue d'ensemble</h2>
+    <p>${curP==="Tous"?"Tous les partenaires":curP} · ${e1.length} participants T1 · ${e2.length} participants T2</p></div>
+    ${(()=>{
+      // Durée moyenne T1→T2
+      const durees=e1.filter(d=>d.Duree!=null).map(d=>d.Duree);
+      const mDuree=durees.length?Math.round(durees.reduce((a,b)=>a+b,0)/durees.length):null;
+      // Nb sessions moyen
+      const allSess=e1.map(d=>d.NbSessions||1);
+      const mSess=allSess.length?Math.round(allSess.reduce((a,b)=>a+b,0)/allSess.length*10)/10:null;
+      return krow([
+        {l:"👥 Participants",v:e1.length,s:e2.length+" avec T2",c:"var(--blue)"},
+        {l:"📊 Maîtrise T1",v:mE?pct(mE):"—",s:"Score moyen entrée",c:"var(--yellow)"},
+        {l:"🎯 Maîtrise T2",v:mS?pct(mS):"—",s:"Score moyen sortie",c:"var(--green)"},
+        {l:"📈 Progression",v:pr!=null?(pr>0?"+":"")+pct(pr):"—",s:"T2 − T1",c:pr>0?"var(--green)":"var(--red)"},
+        {l:"🗓️ Durée moy.",v:mDuree!=null?mDuree+"j":"—",s:"Entre T1 et T2",c:"var(--purple)"},
+        {l:"✅ Complétion",v:comp,s:"Ont fait T1 + T2",c:"var(--text2)"},
+      ]);
+    })()}
+    <div class="g2">
+      <div class="gc">
+        <div class="gt">Score moyen par partenaire (%)</div>
+        <div class="leg">
+          <span><span class="ld" style="background:#4f8ef7"></span>T1 Entrée</span>
+          <span><span class="ld" style="background:#34d399"></span>T2 Sortie</span>
+        </div>
+        <div id="svgBar1"></div>
+      </div>
+      <div class="gc"><div class="gt">Distribution paliers T1</div><div id="svgDon1"></div></div>
+    </div>`;
+  document.getElementById("svgBar1").appendChild(barSvg);
+  document.getElementById("svgDon1").appendChild(doSvg);
+}
+
+// ── PAGE 2 ────────────────────────────────────────────────────────────────
+function renderT2(){
+  const e1=getRows(curP,"Entrée"),e2=getRows(curP,"Sortie");
+  const compE=COMP_FIELDS.map(({f})=>e1.length?r(avg(nn(e1.map(d=>d[f])))):0);
+  const compS=COMP_FIELDS.map(({f})=>e2.length?r(avg(nn(e2.map(d=>d[f])))):0);
+  const hSvg=barH(COMP_FIELDS.map(c=>c.c),
+    [{data:compE,col:"#4f8ef7",label:"T1"},{data:compS,col:"#34d399",label:"T2"}],100,500,280);
+  const pSvg=barH(COMP_FIELDS.map(c=>c.c),
+    [{data:COMP_FIELDS.map((_,i)=>compS[i]-compE[i]),col:"#a78bfa",label:"Progression"}],
+    40,500,280);
+
+  const el=document.getElementById("t2");
+  el.innerHTML=`
+    <div class="ph"><h2>Compétences PIX</h2><p>7 compétences · T1 vs T2</p></div>
+    <div class="gc full" style="margin-bottom:14px">
+      <div class="gt">Maîtrise par compétence (%)</div>
+      <div class="leg">
+        <span><span class="ld" style="background:#4f8ef7"></span>T1 Entrée</span>
+        <span><span class="ld" style="background:#34d399"></span>T2 Sortie</span>
+      </div>
+      <div id="svgH2"></div>
+    </div>
+    <div class="g2">
+      <div class="ccards">${COMP_FIELDS.map(({c},i)=>{
+        const pg=compS[i]-compE[i];
+        return `<div class="ccard" style="border-left:3px solid ${pg>10?"#34d399":"#4f8ef7"}">
+          <div class="cn">${c}</div>
+          <div class="cv" style="color:${e2.length?"#34d399":"#4a566a"}">${e2.length?compS[i]+"%":"—"}</div>
+          <div class="cs">vs ${compE[i]}% T1 ${e2.length?`<span style="color:#34d399;font-weight:600">+${pg} pts</span>`:"(pas de T2)"}</div>
+        </div>`;}).join("")}
+      </div>
+      <div class="gc"><div class="gt">Progression (pts)</div><div id="svgP2"></div></div>
+    </div>`;
+  document.getElementById("svgH2").appendChild(hSvg);
+  document.getElementById("svgP2").appendChild(pSvg);
+}
+
+// ── PAGE 3 ────────────────────────────────────────────────────────────────
+function renderT3(){
+  const e1=getRows(curP,"Entrée"),e2=getRows(curP,"Sortie");
+  const domE=DOM_FIELDS.map(({f})=>e1.length?r(avg(nn(e1.map(d=>d[f])))):0);
+  const domS=DOM_FIELDS.map(({f})=>e2.length?r(avg(nn(e2.map(d=>d[f])))):0);
+  const bSvg=barV(DOM_FIELDS.map(d=>d.d),
+    [{data:domE,col:"#4f8ef7",label:"T1"},{data:domS,col:"#34d399",label:"T2"}],100);
+  const rSvg=radar(DOM_FIELDS.map(d=>d.d),
+    [{data:domE,col:"#4f8ef7",label:"T1 Entrée"},{data:domS,col:"#34d399",label:"T2 Sortie"}]);
+
+  const el=document.getElementById("t3");
+  el.innerHTML=`
+    <div class="ph"><h2>Domaines PIX</h2><p>5 domaines · Progression T1 → T2</p></div>
+    <div class="g2">
+      <div class="gc">
+        <div class="gt">Maîtrise T1 vs T2 (%)</div>
+        <div class="leg">
+          <span><span class="ld" style="background:#4f8ef7"></span>T1</span>
+          <span><span class="ld" style="background:#34d399"></span>T2</span>
+        </div>
+        <div id="svgD3"></div>
+      </div>
+      <div class="gc"><div class="gt">Radar des 5 domaines</div><div id="svgR3"></div></div>
+    </div>
+    <div class="gc" style="margin-top:14px">
+      <div class="gt">Tableau de synthèse</div>
+      <table class="dt">
+        <thead><tr><th>Domaine</th><th>Score T1</th><th>Score T2</th><th>Progression</th><th>Tendance</th></tr></thead>
+        <tbody>${DOM_FIELDS.map(({d},i)=>{
+          const pg=domS[i]-domE[i];
+          return `<tr>
+            <td style="font-weight:500">${d}</td>
+            <td style="color:#fbbf24;font-weight:600">${domE[i]}%</td>
+            <td style="color:#34d399;font-weight:600">${e2.length?domS[i]+"%":"—"}</td>
+            <td>${e2.length?`<span class="badge bg">+${pg} pts</span>`:"—"}</td>
+            <td style="color:#34d399;letter-spacing:2px">${e2.length?"▲".repeat(Math.ceil(pg/5)):""}</td>
+          </tr>`;}).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  document.getElementById("svgD3").appendChild(bSvg);
+  document.getElementById("svgR3").appendChild(rSvg);
+}
+
+// ── PAGE 4 ────────────────────────────────────────────────────────────────
+function renderT4(){
+  const parts=getRows(curP,"Entrée");
+  const el=document.getElementById("t4");
+  if(!parts.length){
+    el.innerHTML=`<div class="empty"><p>Aucun participant avec diagnostic T1.</p></div>`;return;
+  }
+  el.innerHTML=`
+    <div class="ph"><h2>Fiche individuelle</h2><p>Profil complet d'un participant</p></div>
+    <div class="psel-wrap">
+      <label>🔍 Sélectionner un participant</label>
+      <select id="selPart4" onchange="updateFiche4(this.value)">
+        ${parts.map(p=>`<option value="${p.Email}">${p.Nom||p.Email} ${p.Prenom||""} — ${p.Partenaire}</option>`).join("")}
+      </select>
+    </div>
+    <div id="ficheKpi4"></div>
+    <div class="gc"><div class="gt" id="ficheT4">Profil</div><div id="ficheChart4"></div></div>`;
+  updateFiche4(parts[0].Email);
+}
+
+function updateFiche4(email){
+  const rowE=DATA.find(d=>d.Email===email&&d.TypeCampagne==="Entrée");
+  const rowS=DATA.find(d=>d.Email===email&&d.TypeCampagne==="Sortie");
+  if(!rowE)return;
+  const prog=rowS?r(rowS.Score_Global-rowE.Score_Global):null;
+  const nom=(rowE.Nom||"")||email;
+  document.getElementById("ficheT4").textContent="Profil de compétences — "+nom;
+  document.getElementById("ficheKpi4").innerHTML=krow([
+    {l:"📋 Score T1",v:pct(rowE.Score_Global),s:"Palier "+rowE.Palier+"/3",c:"var(--yellow)"},
+    {l:"🏁 Score T2",v:rowS?pct(rowS.Score_Global):"—",s:rowS?"Palier "+rowS.Palier+"/3":"Pas encore",c:"var(--green)"},
+    {l:"📈 Progression",v:prog!=null?"+"+prog+" pts":"—",s:"T2 − T1",c:"var(--blue)"},
+    {l:"🎓 Niveau",v:PLIB[rowE.Palier]||"—",s:rowS?"→ "+PLIB[rowS.Palier]+" (sortie)":"",c:PCOL[rowE.Palier],big:1},
+  ]);
+  const compE=COMP_FIELDS.map(({f})=>r(rowE[f]));
+  const compS=rowS?COMP_FIELDS.map(({f})=>r(rowS[f])):null;
+  const ds=[{data:compE,col:"#4f8ef7",label:"T1 Entrée"}];
+  if(compS) ds.push({data:compS,col:"#34d399",label:"T2 Sortie"});
+  const fc=document.getElementById("ficheChart4");
+  fc.innerHTML="";
+  fc.appendChild(barV(COMP_FIELDS.map(c=>c.c),ds,100));
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+function goTab(id,btn){
+  document.querySelectorAll(".dpage").forEach(p=>p.classList.remove("on"));
+  document.querySelectorAll(".dtab").forEach(b=>b.classList.remove("on"));
+  document.getElementById(id).classList.add("on");
+  btn.classList.add("on");
+  if(id==="t1") renderT1();
+  else if(id==="t2") renderT2();
+  else if(id==="t3") renderT3();
+  else if(id==="t4") renderT4();
+}
+
+function changeP(v){
+  curP=v;
+  const pid=document.querySelector(".dpage.on").id;
+  const btn=document.querySelector(".dtab.on");
+  goTab(pid,btn);
+}
+
+// ── IMPRESSION PDF ────────────────────────────────────────────────────────
+function printDash(){
+  if(!DATA.length){alert("Aucune donnée à imprimer.");return;}
+  // Rendre les 4 pages AVANT d'imprimer
+  const activeId  = document.querySelector(".dpage.on").id;
+  const activeBtn = document.querySelector(".dtab.on");
+  // Afficher toutes les pages
+  document.querySelectorAll(".dpage").forEach(p=>p.classList.add("on"));
+  // Forcer le rendu de chaque page
+  renderT1(); renderT2(); renderT3(); renderT4();
+  // Attendre que les SVG soient dessinés puis imprimer
+  setTimeout(()=>{
+    window.print();
+    // Restaurer l'onglet actif après impression
+    setTimeout(()=>{
+      document.querySelectorAll(".dpage").forEach(p=>p.classList.remove("on"));
+      document.getElementById(activeId).classList.add("on");
+    },500);
+  },400);
+}
+
+// ── EXPORT JSON ────────────────────────────────────────────────────────────
+function exportJSON(){
+  if(!DATA.length){alert("Aucune donnée à exporter.");return;}
+  const parts=[...new Set(DATA.map(d=>d.Partenaire))];
+  const nomPartenaire=curP==="Tous"?parts.join("+"):curP;
+  const dateStr=new Date().toISOString().slice(0,10);
+  const payload={
+    version:"PIX_Analyser_v1",
+    exported:new Date().toISOString(),
+    partenaire:nomPartenaire,
+    fichiers:FILES.map(f=>({name:f.name,partenaire:f.partenaire})),
+    stats:{
+      nbT1:DATA.filter(d=>d.TypeCampagne==="Entrée").length,
+      nbT2:DATA.filter(d=>d.TypeCampagne==="Sortie").length,
+      partenaires:parts,
+    },
+    data:DATA,
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`PIX_${nomPartenaire.replace(/[^a-zA-Z0-9]/g,"_")}_${dateStr}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── IMPORT JSON ────────────────────────────────────────────────────────────
+function importJSON(){
+  const input=document.createElement("input");
+  input.type="file"; input.accept=".json";
+  input.onchange=e=>{
+    const f=e.target.files[0];
+    if(!f) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const payload=JSON.parse(ev.target.result);
+        if(!payload.version||!payload.data){
+          alert("Fichier JSON invalide — pas un export PIX Analyser.");return;
+        }
+        DATA=payload.data;
+        FILES=payload.fichiers.map(f=>({name:f.name,partenaire:f.partenaire,rows:[]}));
+        // Afficher le dashboard
+        const parts=["Tous",...new Set(DATA.map(r=>r.Partenaire).filter(Boolean))];
+        const sel=document.getElementById("dselP");
+        sel.innerHTML=parts.map(p=>`<option>${p}</option>`).join("");
+        document.getElementById("importScreen").style.display="none";
+        document.getElementById("dashScreen").style.display="flex";
+        const nbT1=DATA.filter(r=>r.TypeCampagne==="Entrée").length;
+        const exported=new Date(payload.exported).toLocaleDateString("fr-FR");
+        document.getElementById("dSubtitle").textContent=
+          `${payload.partenaire} · ${nbT1} participants · Importé du ${exported}`;
+        curP="Tous";
+        goTab("t1",document.querySelector(".dtab"));
+      } catch(err){
+        alert("Erreur de lecture du fichier JSON : "+err.message);
+      }
+    };
+    reader.readAsText(f);
+  };
+  input.click();
+}
+
+function closeModal(){
+  document.getElementById("modalSaved").style.display="none";
+}
+</script>
+</body>
+</html>
