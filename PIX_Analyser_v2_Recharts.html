@@ -47,15 +47,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .fitem-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .fbadge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;
   background:rgba(79,142,247,.2);color:var(--blue);white-space:nowrap}
+.fbadge.os{background:rgba(167,139,250,.2);color:var(--purple)}
 .fname{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .frows{font-size:11px;color:var(--text2);white-space:nowrap}
 .fdel{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:2px}
-.fitem-bot{display:flex;align-items:center;gap:8px}
+.fitem-bot{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .plabel{font-size:11px;color:var(--text2);white-space:nowrap}
 .pinput{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
   color:var(--text);font-size:12px;padding:6px 9px;font-family:inherit;outline:none}
 .pinput:focus{border-color:var(--blue)}
 .pinput::placeholder{color:var(--text3)}
+
+/* Mode toggle */
+.fmode{display:flex;gap:4px}
+.fmode-btn{flex:1;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:600;
+  border:1px solid var(--border2);background:var(--bg3);color:var(--text3);cursor:pointer;
+  font-family:inherit;transition:all .2s;text-align:center}
+.fmode-btn:hover{color:var(--text2);border-color:var(--border2)}
+.fmode-btn.cycle.on{border-color:var(--blue);background:rgba(79,142,247,.15);color:var(--blue)}
+.fmode-btn.os.on{border-color:var(--purple);background:rgba(167,139,250,.15);color:var(--purple)}
+
 .btn-gen{width:100%;max-width:620px;margin-top:22px;background:linear-gradient(135deg,var(--blue),#6366f1);
   color:#fff;border:none;padding:15px;border-radius:var(--r);font-size:15px;font-weight:700;
   cursor:pointer;font-family:inherit;box-shadow:0 4px 20px rgba(79,142,247,.3)}
@@ -81,6 +92,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   font-weight:500;cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;
   transition:all .2s;white-space:nowrap}
 .dtab.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.dtab.os.on{color:var(--purple);border-bottom-color:var(--purple)}
+.dtab-sep{width:1px;background:var(--border2);margin:6px 4px;align-self:stretch}
 .dct{padding:16px;max-width:1100px;margin:0 auto;width:100%}
 .ph{margin-bottom:14px}
 .ph h2{font-size:17px;font-weight:700;letter-spacing:-.3px}
@@ -132,6 +145,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .ccard .cv{font-size:18px;font-weight:700;margin:3px 0}
 .ccard .cs{font-size:10px;color:var(--text2)}
 
+/* Pal bars */
+.pal-bar-wrap{display:flex;flex-direction:column;gap:8px;padding:6px 0}
+.pal-bar-row{display:flex;align-items:center;gap:10px}
+.pal-bar-track{flex:1;height:22px;background:var(--bg3);border-radius:5px;overflow:hidden}
+.pal-bar-fill{height:100%;border-radius:5px;transition:width .5s ease}
+.pal-bar-label{font-size:11px;color:var(--text2);white-space:nowrap;min-width:110px}
+.pal-bar-count{font-size:11px;font-weight:600;white-space:nowrap;min-width:22px;text-align:right}
+
 @media print{
   body{background:#fff!important;color:#000!important}
   .import,.dhdr,.dtabs,.d-btn,.d-right{display:none!important}
@@ -152,7 +173,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <body>
 <div id="root"></div>
 <script>
-// htm setup — zéro compilation, pas de Babel
 const html = htm.bind(React.createElement);
 const { useState, useEffect, useCallback, useRef } = React;
 const {
@@ -267,30 +287,58 @@ function parseDate(str){
   return null;
 }
 
+// ── PROCESS FILES ─────────────────────────────────────────────────────────
 function processFiles(files){
-  const data=[];
+  const cycleData=[];
+  const osByKey={}; // "email|partenaire" → enregistrement le plus récent
+
   files.forEach(f=>{
     const partenaire=f.partenaire||"(sans nom)";
-    const byEmail={};
-    f.rows.forEach(row=>{
-      if(!row.Email) return;
-      if(!byEmail[row.Email]) byEmail[row.Email]=[];
-      byEmail[row.Email].push(row);
-    });
-    Object.entries(byEmail).forEach(([email,sessions])=>{
-      sessions.sort((a,b)=>{
-        const da=parseDate(a.Date_Debut),db=parseDate(b.Date_Debut);
-        if(!da&&!db) return 0; if(!da) return 1; if(!db) return -1; return da-db;
+    const isOS=f.mode==="oneshot";
+
+    if(isOS){
+      // One Shot : déduplication par email+partenaire, garde le plus récent
+      f.rows.forEach(row=>{
+        if(!row.Email) return;
+        const key=row.Email+"|"+partenaire;
+        const existing=osByKey[key];
+        if(!existing){
+          osByKey[key]={...row,TypeCampagne:"OneShot",Mode:"OneShot",
+            Partenaire:partenaire,NbSessions:1,Duree:null};
+        } else {
+          const ed=parseDate(existing.Date_Debut),nd=parseDate(row.Date_Debut);
+          if(nd&&(!ed||nd>ed)){
+            osByKey[key]={...row,TypeCampagne:"OneShot",Mode:"OneShot",
+              Partenaire:partenaire,NbSessions:(existing.NbSessions||1)+1,Duree:null};
+          } else {
+            osByKey[key].NbSessions=(osByKey[key].NbSessions||1)+1;
+          }
+        }
       });
-      const t1=sessions[0],t2=sessions.length>1?sessions[sessions.length-1]:null;
-      let duree=null;
-      if(t1&&t2){const d1=parseDate(t1.Date_Debut),d2=parseDate(t2.Date_Debut);
-        if(d1&&d2) duree=Math.round((d2-d1)/(1000*60*60*24));}
-      data.push({...t1,TypeCampagne:"Entrée",Partenaire:partenaire,NbSessions:sessions.length,Duree:duree});
-      if(t2) data.push({...t2,TypeCampagne:"Sortie",Partenaire:partenaire,NbSessions:sessions.length,Duree:duree});
-    });
+    } else {
+      // Par cycle : logique existante T1/T2
+      const byEmail={};
+      f.rows.forEach(row=>{
+        if(!row.Email) return;
+        if(!byEmail[row.Email]) byEmail[row.Email]=[];
+        byEmail[row.Email].push(row);
+      });
+      Object.entries(byEmail).forEach(([email,sessions])=>{
+        sessions.sort((a,b)=>{
+          const da=parseDate(a.Date_Debut),db=parseDate(b.Date_Debut);
+          if(!da&&!db) return 0; if(!da) return 1; if(!db) return -1; return da-db;
+        });
+        const t1=sessions[0],t2=sessions.length>1?sessions[sessions.length-1]:null;
+        let duree=null;
+        if(t1&&t2){const d1=parseDate(t1.Date_Debut),d2=parseDate(t2.Date_Debut);
+          if(d1&&d2) duree=Math.round((d2-d1)/(1000*60*60*24));}
+        cycleData.push({...t1,TypeCampagne:"Entrée",Mode:"Cycle",Partenaire:partenaire,NbSessions:sessions.length,Duree:duree});
+        if(t2) cycleData.push({...t2,TypeCampagne:"Sortie",Mode:"Cycle",Partenaire:partenaire,NbSessions:sessions.length,Duree:duree});
+      });
+    }
   });
-  return data;
+
+  return [...cycleData,...Object.values(osByKey)];
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
@@ -342,29 +390,34 @@ function KPI({label,value,sub,color=C.blue}){
   </div>`;
 }
 
-// ── PAGE 1 ────────────────────────────────────────────────────────────────
+// ── PAGE 1 — Vue d'ensemble (cycle) ───────────────────────────────────────
 function P1({data,curP}){
   const e1=filter(data,curP,"Entrée"),e2=filter(data,curP,"Sortie");
   const mE=e1.length?avg(nn(e1.map(d=>d.Score_Global))):null;
   const mS=e2.length?avg(nn(e2.map(d=>d.Score_Global))):null;
-  const pr=mE&&mS?mS-mE:null;
+  const pr=mE!=null&&mS!=null?mS-mE:null;
   const durees=e1.filter(d=>d.Duree!=null).map(d=>d.Duree);
   const mD=durees.length?Math.round(avg(durees)):null;
-  const parts=[...new Set(data.map(d=>d.Partenaire))];
+  // Seulement les partenaires avec données cycle
+  const parts=[...new Set(data.filter(d=>d.Mode==="Cycle").map(d=>d.Partenaire))];
   const barData=parts.map(p=>({
     name:p.length>11?p.slice(0,11)+"…":p,
     "T1":r(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Entrée").map(d=>d.Score_Global)))),
     "T2":r(avg(nn(data.filter(d=>d.Partenaire===p&&d.TypeCampagne==="Sortie").map(d=>d.Score_Global)))),
   }));
   const palData=[0,1,2,3].map(n=>({name:PLIB[n],value:e1.filter(d=>d.Palier===n).length,color:PCOL[n]})).filter(d=>d.value>0);
+  if(!e1.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>
+    <div style=${{fontSize:36,marginBottom:12}}>🔄</div>
+    Aucune donnée "Par cycle" pour ce filtre.
+  </div>`;
   return html`<div>
-    <div className="ph"><h2>Vue d'ensemble</h2>
+    <div className="ph"><h2>Vue d'ensemble — Par cycle</h2>
       <p>${curP==="Tous"?"Tous les partenaires":curP} · ${e1.length} participants T1 · ${e2.length} avec T2</p></div>
     <div className="krow">
       <${KPI} label="👥 Participants" value=${e1.length} sub="${e2.length} avec T2" color=${C.blue}/>
       <${KPI} label="📊 Maîtrise T1" value=${pct(mE)} sub="Score moyen entrée" color=${C.yellow}/>
       <${KPI} label="🎯 Maîtrise T2" value=${pct(mS)} sub="Score moyen sortie" color=${C.green}/>
-      <${KPI} label="📈 Progression" value=${pr!=null?(pr>0?"+":"")+pct(pr):"—"} sub="T2 − T1" color=${pr>0?C.green:C.red}/>
+      <${KPI} label="📈 Progression" value=${pr!=null?(pr>0?"+":"")+pct(pr):"—"} sub="T2 − T1" color=${pr!=null&&pr>0?C.green:C.red}/>
       <${KPI} label="🗓️ Durée moy." value=${mD!=null?mD+"j":"—"} sub="Entre T1 et T2" color=${C.purple}/>
     </div>
     <div className="g2">
@@ -375,14 +428,10 @@ function P1({data,curP}){
             <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
             <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}}/>
             <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
-            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.05)"}}/>
+            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
             <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
-            <${Bar} dataKey="T1" fill=${C.yellow} radius=${[4,4,0,0]} maxBarSize=${30}>
-              <${LabelList} dataKey="T1" position="top" formatter=${v=>v+"%"} style=${{fill:"#fbbf24",fontSize:11,fontWeight:600}}/>
-            <//>
-            <${Bar} dataKey="T2" fill=${C.green} radius=${[4,4,0,0]} maxBarSize=${30}>
-              <${LabelList} dataKey="T2" position="top" formatter=${v=>v?v+"%":""} style=${{fill:"#34d399",fontSize:11,fontWeight:600}}/>
-            <//>
+            <${Bar} dataKey="T1" fill=${C.yellow} radius=${[4,4,0,0]} maxBarSize=${30}/>
+            <${Bar} dataKey="T2" fill=${C.green}  radius=${[4,4,0,0]} maxBarSize=${30}/>
           <//>
         <//>
       </div>
@@ -403,7 +452,7 @@ function P1({data,curP}){
   </div>`;
 }
 
-// ── PAGE 2 ────────────────────────────────────────────────────────────────
+// ── PAGE 2 — Compétences (cycle) ──────────────────────────────────────────
 function P2({data,curP}){
   const e1=filter(data,curP,"Entrée"),e2=filter(data,curP,"Sortie");
   const compData=COMP_FIELDS.map(({c,f})=>({
@@ -421,7 +470,7 @@ function P2({data,curP}){
           <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" horizontal=${false}/>
           <${XAxis} type="number" domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
           <${YAxis} type="category" dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}} width=${74}/>
-          <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.05)"}}/>
+          <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
           <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
           <${Bar} dataKey="T1" fill=${C.yellow} radius=${[0,4,4,0]} maxBarSize=${14}/>
           <${Bar} dataKey="T2" fill=${C.green}  radius=${[0,4,4,0]} maxBarSize=${14}/>
@@ -443,7 +492,7 @@ function P2({data,curP}){
             <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" horizontal=${false}/>
             <${XAxis} type="number" tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>"+"+v}/>
             <${YAxis} type="category" dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}} width=${74}/>
-            <${Tooltip} formatter=${v=>["+"+v+" pts","Progression"]} cursor=${{"fill":"rgba(255,255,255,0.05)"}}/>
+            <${Tooltip} formatter=${v=>["+"+v+" pts","Progression"]} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
             <${Bar} dataKey="prog" name="Progression" fill=${C.purple} radius=${[0,4,4,0]} maxBarSize=${14}>
               <${LabelList} dataKey="prog" position="right" formatter=${v=>"+"+v} style=${{fill:"#8b97b0",fontSize:9}}/>
             <//>
@@ -454,7 +503,7 @@ function P2({data,curP}){
   </div>`;
 }
 
-// ── PAGE 3 ────────────────────────────────────────────────────────────────
+// ── PAGE 3 — Domaines (cycle) ─────────────────────────────────────────────
 function P3({data,curP}){
   const e1=filter(data,curP,"Entrée"),e2=filter(data,curP,"Sortie");
   const domData=DOM_FIELDS.map(({d,f})=>({
@@ -473,7 +522,7 @@ function P3({data,curP}){
             <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
             <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:9}}/>
             <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
-            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.05)"}}/>
+            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
             <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
             <${Bar} dataKey="T1" fill=${C.yellow} radius=${[4,4,0,0]} maxBarSize=${28}/>
             <${Bar} dataKey="T2" fill=${C.green}  radius=${[4,4,0,0]} maxBarSize=${28}/>
@@ -489,7 +538,7 @@ function P3({data,curP}){
             <${Radar} name="T1 Entrée" dataKey="T1 Entrée" stroke=${C.yellow} fill=${C.yellow} fillOpacity=${0.2}/>
             <${Radar} name="T2 Sortie" dataKey="T2 Sortie" stroke=${C.green}  fill=${C.green}  fillOpacity=${0.2}/>
             <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
-            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.05)"}}/>
+            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
           <//>
         <//>
       </div>
@@ -513,7 +562,7 @@ function P3({data,curP}){
   </div>`;
 }
 
-// ── PAGE 4 ────────────────────────────────────────────────────────────────
+// ── PAGE 4 — Fiche individuelle (cycle) ───────────────────────────────────
 function P4({data,curP}){
   const parts=filter(data,curP,"Entrée");
   const [email,setEmail]=useState(parts[0]?.Email||"");
@@ -523,7 +572,7 @@ function P4({data,curP}){
   },[curP,data]);
   const rowE=data.find(d=>d.Email===email&&d.TypeCampagne==="Entrée");
   const rowS=data.find(d=>d.Email===email&&d.TypeCampagne==="Sortie");
-  if(!parts.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>Aucun participant.</div>`;
+  if(!parts.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>Aucun participant cycle.</div>`;
   const compData=COMP_FIELDS.map(({c,f})=>({
     name:c,"T1":rowE?r(rowE[f]):0,...(rowS?{"T2":r(rowS[f])}:{})
   }));
@@ -554,7 +603,7 @@ function P4({data,curP}){
             <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
             <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:9}}/>
             <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
-            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.05)"}}/>
+            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
             <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
             <${Bar} dataKey="T1" fill=${C.yellow} radius=${[4,4,0,0]} maxBarSize=${24}/>
             ${rowS&&html`<${Bar} dataKey="T2" fill=${C.green} radius=${[4,4,0,0]} maxBarSize=${24}/>`}
@@ -562,6 +611,178 @@ function P4({data,curP}){
         <//>
       </div>
     </div>`}
+  </div>`;
+}
+
+// ── PAGE 5 — One Shot ────────────────────────────────────────────────────
+function P_OS({data,curP}){
+  const osAll=data.filter(d=>d.Mode==="OneShot");
+  const os=osAll.filter(d=>curP==="Tous"||d.Partenaire===curP);
+  const [email,setEmail]=useState(os[0]?.Email||"");
+
+  useEffect(()=>{
+    const osFilt=data.filter(d=>d.Mode==="OneShot"&&(curP==="Tous"||d.Partenaire===curP));
+    if(osFilt.length&&!osFilt.find(p=>p.Email===email)) setEmail(osFilt[0]?.Email||"");
+  },[curP,data]);
+
+  if(!os.length) return html`<div style=${{textAlign:"center",padding:60,color:"var(--text2)"}}>
+    <div style=${{fontSize:44,marginBottom:12}}>📸</div>
+    Aucun atelier One Shot pour ce filtre.
+  </div>`;
+
+  const mScore=avg(nn(os.map(d=>d.Score_Global)));
+  const palMoy=Math.min(3,Math.max(0,Math.round(avg(os.map(d=>d.Palier)))));
+  const palData=[0,1,2,3].map(n=>({name:PLIB[n],value:os.filter(d=>d.Palier===n).length,color:PCOL[n]})).filter(d=>d.value>0);
+
+  const compData=COMP_FIELDS.map(({c,f})=>({
+    name:c,
+    "Score":os.length?r(avg(nn(os.map(d=>d[f])))):0,
+  }));
+
+  const domData=DOM_FIELDS.map(({d,f})=>({
+    name:d,
+    "Score":os.length?r(avg(nn(os.map(x=>x[f])))):0,
+  }));
+  const radarData=domData.map(d=>({subject:d.name,"Score":d["Score"]}));
+
+  // Barres par partenaire (si plusieurs)
+  const osParts=[...new Set(osAll.map(d=>d.Partenaire))];
+  const barParts=osParts.map(p=>({
+    name:p.length>11?p.slice(0,11)+"…":p,
+    "Score":r(avg(nn(osAll.filter(d=>d.Partenaire===p).map(d=>d.Score_Global)))),
+    "Nb":osAll.filter(d=>d.Partenaire===p).length,
+  }));
+
+  // Fiche individuelle
+  const rowOS=os.find(d=>d.Email===email);
+  const compIndiv=COMP_FIELDS.map(({c,f})=>({name:c,"Score":rowOS?r(rowOS[f]):0}));
+  const nom=rowOS?(rowOS.Prenom?rowOS.Prenom+" "+rowOS.Nom:rowOS.Nom||rowOS.Email):"";
+
+  return html`<div>
+    <div className="ph">
+      <h2>📸 Ateliers One Shot</h2>
+      <p>${curP==="Tous"?"Tous les partenaires":curP} · ${os.length} participant${os.length>1?"s":""} · Vue instantanée</p>
+    </div>
+
+    <div style=${{marginBottom:14}}>
+      <select style=${{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:7,
+        color:"var(--text)",fontSize:12,padding:"7px 10px",width:"100%",maxWidth:440,
+        outline:"none",fontFamily:"inherit"}}
+        value=${email} onChange=${e=>setEmail(e.target.value)}>
+        ${os.map(p=>html`<option key=${p.Email} value=${p.Email}>
+          ${p.Prenom?p.Prenom+" "+p.Nom:p.Nom||p.Email} — ${PLIB[p.Palier]}${curP==="Tous"?" · "+p.Partenaire:""}
+        </option>`)}
+      </select>
+    </div>
+
+    <div className="krow">
+      <${KPI} label="👥 Participants" value=${os.length} sub="${osParts.length} partenaire${osParts.length>1?"s":""}" color=${C.purple}/>
+      <${KPI} label="📊 Score moyen" value=${pct(mScore)} sub="Maîtrise globale" color=${C.blue}/>
+      <${KPI} label="🎓 Niveau médian" value=${PLIB[palMoy]} sub="Palier ${palMoy}/3" color=${PCOL[palMoy]}/>
+    </div>
+
+    <div className="g2">
+      <div className="gc">
+        <div className="gt">Distribution des paliers</div>
+        <${ResponsiveContainer} width="100%" height=${200}>
+          <${PieChart}>
+            <${Pie} data=${palData} cx="45%" cy="50%" innerRadius=${50} outerRadius=${80}
+              dataKey="value" paddingAngle=${3}>
+              ${palData.map((d,i)=>html`<${Cell} key=${i} fill=${d.color}/>`)}
+            <//>
+            <${Tooltip} content=${TipPie}/>
+            <${Legend} iconSize=${10} wrapperStyle=${{fontSize:11}}/>
+          <//>
+        <//>
+      </div>
+
+      ${osParts.length>1?html`
+      <div className="gc">
+        <div className="gt">Score moyen par partenaire (%)</div>
+        <${ResponsiveContainer} width="100%" height=${200}>
+          <${BarChart} data=${barParts} margin=${{top:4,right:8,left:-20,bottom:0}}>
+            <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
+            <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}}/>
+            <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
+            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
+            <${Bar} dataKey="Score" fill=${C.purple} radius=${[4,4,0,0]} maxBarSize=${30}>
+              <${LabelList} dataKey="Score" position="top" formatter=${v=>v+"%"} style=${{fill:"#a78bfa",fontSize:11,fontWeight:600}}/>
+            <//>
+          <//>
+        <//>
+      </div>`:html`
+      <div className="gc">
+        <div className="gt">Répartition détaillée des paliers</div>
+        <div className="pal-bar-wrap">
+          ${[0,1,2,3].map(n=>{
+            const nb=os.filter(d=>d.Palier===n).length;
+            const pct_v=os.length?Math.round(nb/os.length*100):0;
+            return html`<div key=${n} className="pal-bar-row">
+              <span className="pal-bar-label" style=${{color:PCOL[n]}}>${PLIB[n]}</span>
+              <div className="pal-bar-track">
+                <div className="pal-bar-fill" style=${{width:pct_v+"%",background:PCOL[n]}}/>
+              </div>
+              <span className="pal-bar-count" style=${{color:PCOL[n]}}>${nb}</span>
+              <span style=${{fontSize:10,color:"var(--text3)",minWidth:28}}>${pct_v}%</span>
+            </div>`;
+          })}
+        </div>
+      </div>`}
+    </div>
+
+    <div className="g2">
+      <div className="gc">
+        <div className="gt">Score moyen par compétence (%)</div>
+        <${ResponsiveContainer} width="100%" height=${240}>
+          <${BarChart} data=${compData} layout="vertical" margin=${{top:4,right:44,left:74,bottom:0}}>
+            <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" horizontal=${false}/>
+            <${XAxis} type="number" domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
+            <${YAxis} type="category" dataKey="name" tick=${{fill:"#8b97b0",fontSize:10}} width=${74}/>
+            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
+            <${Bar} dataKey="Score" fill=${C.purple} radius=${[0,4,4,0]} maxBarSize=${16}>
+              <${LabelList} dataKey="Score" position="right" formatter=${v=>v+"%"} style=${{fill:"#8b97b0",fontSize:9}}/>
+            <//>
+          <//>
+        <//>
+      </div>
+      <div className="gc">
+        <div className="gt">Radar des 5 domaines</div>
+        <${ResponsiveContainer} width="100%" height=${240}>
+          <${RadarChart} data=${radarData}>
+            <${PolarGrid} stroke="#2a3347"/>
+            <${PolarAngleAxis} dataKey="subject" tick=${{fill:"#8b97b0",fontSize:9}}/>
+            <${Radar} name="Score" dataKey="Score" stroke=${C.purple} fill=${C.purple} fillOpacity=${0.25}/>
+            <${Tooltip} content=${Tip}/>
+          <//>
+        <//>
+      </div>
+    </div>
+
+    <div className="gc">
+      <div className="gt">Fiche individuelle One Shot</div>
+      ${rowOS&&html`<div>
+        <div className="krow" style=${{marginBottom:12}}>
+          <${KPI} label="📋 Score" value=${pct(rowOS.Score_Global)} sub="Palier ${rowOS.Palier}/3" color=${C.purple}/>
+          <${KPI} label="🎓 Niveau" value=${PLIB[rowOS.Palier]} color=${PCOL[rowOS.Palier]}/>
+          ${rowOS.Date_Debut&&html`<${KPI} label="📅 Date atelier" value=${rowOS.Date_Debut} sub=${rowOS.Partenaire} color=${C.blue}/>`}
+        </div>
+        <div style=${{fontSize:12,fontWeight:600,color:"var(--text)",paddingBottom:8,
+          borderBottom:"1px solid var(--border)",marginBottom:10}}>
+          Profil de compétences — ${nom}
+        </div>
+        <${ResponsiveContainer} width="100%" height=${200}>
+          <${BarChart} data=${compIndiv} margin=${{top:4,right:8,left:-20,bottom:0}}>
+            <${CartesianGrid} strokeDasharray="3 3" stroke="#2a3347" vertical=${false}/>
+            <${XAxis} dataKey="name" tick=${{fill:"#8b97b0",fontSize:9}}/>
+            <${YAxis} domain=${[0,100]} tick=${{fill:"#8b97b0",fontSize:10}} tickFormatter=${v=>v+"%"}/>
+            <${Tooltip} content=${Tip} cursor=${{"fill":"rgba(255,255,255,0.02)"}}/>
+            <${Bar} dataKey="Score" fill=${C.purple} radius=${[4,4,0,0]} maxBarSize=${24}>
+              <${LabelList} dataKey="Score" position="top" formatter=${v=>v+"%"} style=${{fill:"#a78bfa",fontSize:10,fontWeight:600}}/>
+            <//>
+          <//>
+        <//>
+      </div>`}
+    </div>
   </div>`;
 }
 
@@ -584,8 +805,13 @@ function App(){
         const emails=new Set(rows.map(r=>r.Email));
         const avecT2=[...emails].filter(em=>rows.filter(r=>r.Email===em).length>1);
         setFiles(prev=>[...prev,{
-          id:Date.now()+Math.random(),name:f.name,partenaire:"",rows,
-          info:`${emails.size} participants · ${avecT2.length} avec T2`
+          id:Date.now()+Math.random(),
+          name:f.name,
+          partenaire:"",
+          mode:"cycle",   // "cycle" | "oneshot"
+          rows,
+          nEmails:emails.size,
+          nT2:avecT2.length,
         }]);
       };
       reader.readAsText(f,"utf-8");
@@ -594,6 +820,7 @@ function App(){
 
   const removeFile=id=>setFiles(prev=>prev.filter(f=>f.id!==id));
   const updatePart=(id,val)=>setFiles(prev=>prev.map(f=>f.id===id?{...f,partenaire:val}:f));
+  const updateMode=(id,val)=>setFiles(prev=>prev.map(f=>f.id===id?{...f,mode:val}:f));
 
   const generate=()=>{
     const d=processFiles(files);
@@ -601,8 +828,15 @@ function App(){
     setData(d);
     const nbT1=d.filter(r=>r.TypeCampagne==="Entrée").length;
     const nbT2=d.filter(r=>r.TypeCampagne==="Sortie").length;
-    setSubtitle(`${files.length} campagne${files.length>1?"s":""} · ${nbT1} participants · ${nbT2} avec T2`);
-    setCurP("Tous");setTab("t1");setScreen("dash");
+    const nbOS=d.filter(r=>r.Mode==="OneShot").length;
+    let sub=`${files.length} campagne${files.length>1?"s":""}`;
+    if(nbT1) sub+=` · ${nbT1} participants cycle`;
+    if(nbOS) sub+=` · ${nbOS} one shot`;
+    setSubtitle(sub);
+    setCurP("Tous");
+    const hasCycle=d.some(r=>r.Mode==="Cycle");
+    setTab(hasCycle?"t1":"t5");
+    setScreen("dash");
   };
 
   const exportJSON=()=>{
@@ -610,14 +844,17 @@ function App(){
     const parts=[...new Set(data.map(d=>d.Partenaire))];
     const nom=curP==="Tous"?parts.join("+"):curP;
     const date=new Date().toISOString().slice(0,10);
+    const nbT1=data.filter(d=>d.TypeCampagne==="Entrée").length;
+    const nbT2=data.filter(d=>d.TypeCampagne==="Sortie").length;
+    const nbOS=data.filter(d=>d.Mode==="OneShot").length;
     const payload={version:"PIX_Analyser_v2",exported:new Date().toISOString(),
-      partenaire:nom,fichiers:files.map(f=>({name:f.name,partenaire:f.partenaire})),
-      stats:{nbT1:data.filter(d=>d.TypeCampagne==="Entrée").length,
-             nbT2:data.filter(d=>d.TypeCampagne==="Sortie").length},data};
+      partenaire:nom,
+      fichiers:files.map(f=>({name:f.name,partenaire:f.partenaire,mode:f.mode||"cycle"})),
+      stats:{nbT1,nbT2,nbOS},data};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
-    a.download=`PIX_${nom.replace(/[^a-zA-Z0-9]/g,"_")}_${date}.json`;
+    a.download=`${nom}.json`;
     a.click();URL.revokeObjectURL(a.href);
   };
 
@@ -632,10 +869,15 @@ function App(){
           const p=JSON.parse(ev.target.result);
           if(!p.version||!p.data){alert("Fichier JSON invalide.");return;}
           setData(p.data);
-          setFiles(p.fichiers.map(f=>({...f,id:Date.now()+Math.random(),rows:[],info:""})));
+          setFiles(p.fichiers.map(f=>({...f,id:Date.now()+Math.random(),rows:[],nEmails:0,nT2:0})));
           const exported=new Date(p.exported).toLocaleDateString("fr-FR");
-          setSubtitle(`${p.partenaire} · ${p.stats.nbT1} participants · Importé du ${exported}`);
-          setCurP("Tous");setTab("t1");setScreen("dash");
+          const nbOS=p.stats.nbOS||0;
+          let sub=`${p.partenaire} · ${p.stats.nbT1} cycle`;
+          if(nbOS) sub+=` · ${nbOS} one shot`;
+          sub+=` · Importé du ${exported}`;
+          setSubtitle(sub);
+          const hasCycle=p.data.some(r=>r.Mode==="Cycle");
+          setCurP("Tous");setTab(hasCycle?"t1":"t5");setScreen("dash");
         }catch(err){alert("Erreur JSON : "+err.message);}
       };
       reader.readAsText(f);
@@ -662,6 +904,8 @@ function App(){
   },[handleFiles]);
 
   const partenaires=["Tous",...new Set(data.map(d=>d.Partenaire))];
+  const hasCycle=data.some(d=>d.Mode==="Cycle");
+  const hasOS=data.some(d=>d.Mode==="OneShot");
 
   // ── IMPORT SCREEN ───────────────────────────────────────────────────────
   if(screen==="import") return html`<div className="import">
@@ -670,7 +914,7 @@ function App(){
     <div className="drop" ref=${dropRef} onClick=${()=>document.getElementById("fi").click()}>
       <span style=${{fontSize:44,display:"block",marginBottom:14}}>📂</span>
       <h3>Dépose tes exports PIX ici</h3>
-      <p>Un fichier CSV par campagne · T1 = première session · T2 = dernière</p>
+      <p>Un CSV par campagne · choisis le format pour chaque fichier ci-dessous</p>
       <button className="btn-up" onClick=${e=>{e.stopPropagation();document.getElementById("fi").click();}}>
         📤 Choisir des fichiers CSV
       </button>
@@ -681,12 +925,19 @@ function App(){
         📂 Charger un JSON sauvegardé
       </button>
     </div>
+
     ${files.length>0&&html`<div className="flist">
       ${files.map((f,i)=>html`<div key=${f.id} className="fitem">
         <div className="fitem-top">
-          <span className="fbadge">📊 Campagne</span>
+          <span className=${"fbadge"+(f.mode==="oneshot"?" os":"")}>
+            ${f.mode==="oneshot"?"📸 One Shot":"📊 Cycle"}
+          </span>
           <span className="fname" title=${f.name}>${f.name}</span>
-          <span className="frows">${f.info}</span>
+          <span className="frows">
+            ${f.mode==="oneshot"
+              ?f.nEmails+" participant"+(f.nEmails>1?"s":"")+" · one shot"
+              :f.nEmails+" participants · "+f.nT2+" avec T2"}
+          </span>
           <button className="fdel" onClick=${()=>removeFile(f.id)}>×</button>
         </div>
         <div className="fitem-bot">
@@ -694,14 +945,36 @@ function App(){
           <input className="pinput" placeholder="Ex: Fumel Gr.1, Pôle Emploi…"
             value=${f.partenaire} onInput=${e=>updatePart(f.id,e.target.value)}/>
         </div>
+        <div className="fmode">
+          <button
+            className=${"fmode-btn cycle"+(f.mode==="cycle"?" on":"")}
+            onClick=${()=>updateMode(f.id,"cycle")}>
+            🔄 Par cycle (T1 / T2)
+          </button>
+          <button
+            className=${"fmode-btn os"+(f.mode==="oneshot"?" on":"")}
+            onClick=${()=>updateMode(f.id,"oneshot")}>
+            📸 One Shot (vue unique)
+          </button>
+        </div>
       </div>`)}
     </div>`}
+
     ${files.length>0&&html`<button className="btn-gen" onClick=${generate}>⚡ Générer le dashboard</button>`}
-    <p className="hint">Première session = T1 · Dernière session = T2 · Intermédiaires ignorés</p>
+    <p className="hint">Par cycle : T1 = 1ère session · T2 = dernière · One Shot : 1 seule visite par participant, dédupliqué si campagne rechargée</p>
   </div>`;
 
   // ── DASHBOARD ───────────────────────────────────────────────────────────
-  const tabs=[["t1","Vue d'ensemble"],["t2","Compétences"],["t3","Domaines"],["t4","Fiche individuelle"]];
+  const tabs=[
+    ...(hasCycle?[
+      ["t1","Vue d'ensemble"],
+      ["t2","Compétences"],
+      ["t3","Domaines"],
+      ["t4","Fiche individuelle"],
+    ]:[]),
+    ...(hasOS?[["t5","📸 One Shot"]]:[]),
+  ];
+
   return html`<div className="dash">
     <div className="dhdr">
       <span className="d-logo">⚡ PIX Analyser v2</span>
@@ -714,12 +987,13 @@ function App(){
         <button className="d-btn" onClick=${printDash}>🖨️ PDF</button>
         <button className="d-btn" onClick=${exportJSON}>💾 Export JSON</button>
         <button className="d-btn" onClick=${importJSON}>📂 Import JSON</button>
-        <button className="d-btn" onClick=${()=>setScreen("import")}>← Nouvelle analyse</button>
+        <button className="d-btn" onClick=${()=>{setFiles([]);setScreen("import");}}>← Nouvelle analyse</button>
       </div>
     </div>
     <div className="dtabs">
-      ${tabs.map(([id,label])=>html`<button key=${id}
-        className=${"dtab"+(tab===id?" on":"")} onClick=${()=>setTab(id)}>${label}</button>`)}
+      ${tabs.map(([id,label],i)=>html`<button key=${id}
+        className=${"dtab"+(tab===id?" on":"")+(id==="t5"?" os":"")}
+        onClick=${()=>setTab(id)}>${label}</button>`)}
     </div>
     <div className="dct">
       ${tabs.map(([id])=>html`<div key=${id} className="pagesec" style=${{display:tab===id?"block":"none"}}>
@@ -727,6 +1001,7 @@ function App(){
         ${id==="t2"&&html`<${P2} data=${data} curP=${curP}/>`}
         ${id==="t3"&&html`<${P3} data=${data} curP=${curP}/>`}
         ${id==="t4"&&html`<${P4} data=${data} curP=${curP}/>`}
+        ${id==="t5"&&html`<${P_OS} data=${data} curP=${curP}/>`}
       </div>`)}
     </div>
   </div>`;
@@ -734,22 +1009,21 @@ function App(){
 
 // Lancer l'app
 function startApp(){
-  if(typeof htm === "undefined" || typeof Recharts === "undefined" || typeof React === "undefined"){
-    document.getElementById("root").innerHTML =
-      '<div style="color:#f87171;padding:40px;text-align:center;font-family:sans-serif">' +
-      '<div style="font-size:32px;margin-bottom:16px">⚠️</div>' +
-      '<strong>Connexion internet requise</strong><br><br>' +
-      'Cette version utilise Recharts (CDN).<br>' +
-      'Vérifie ta connexion et recharge la page.' +
+  if(typeof htm==="undefined"||typeof Recharts==="undefined"||typeof React==="undefined"){
+    document.getElementById("root").innerHTML=
+      '<div style="color:#f87171;padding:40px;text-align:center;font-family:sans-serif">'+
+      '<div style="font-size:32px;margin-bottom:16px">⚠️</div>'+
+      '<strong>Connexion internet requise</strong><br><br>'+
+      'Cette version utilise Recharts (CDN).<br>'+
+      'Vérifie ta connexion et recharge la page.'+
       '</div>';
     return;
   }
   ReactDOM.createRoot(document.getElementById("root")).render(html`<${App}/>`);
 }
 
-// Attendre que tous les scripts CDN soient chargés
-if(document.readyState === "loading"){
-  document.addEventListener("DOMContentLoaded", startApp);
+if(document.readyState==="loading"){
+  document.addEventListener("DOMContentLoaded",startApp);
 } else {
   startApp();
 }
